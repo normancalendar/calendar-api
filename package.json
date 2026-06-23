@@ -1,0 +1,9 @@
+{
+  "name": "calendar-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "pg": "^8.11.0"
+  }
+}
+``
