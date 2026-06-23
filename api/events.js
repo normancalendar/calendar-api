@@ -8,15 +8,13 @@ const pool = new Pool({
 });
 
 module.exports = async function handler(req, res) {
-  // ✅ ALWAYS set CORS headers FIRST
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://normanwaycalendar.github.io');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // ✅ Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
-  }
+}
 
   try {
     // ✅ GET EVENTS
