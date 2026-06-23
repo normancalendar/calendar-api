@@ -26,11 +26,12 @@ module.exports = async function handler(req, res) {
     }
 
     // ✅ Parse request body (Vercel-safe)
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
+    let data = {};
+    try {
+      data = req.body || {};
+    } catch (e) {
+      data = {};
     }
-    const data = body ? JSON.parse(body) : {};
 
     // ✅ CREATE EVENT
     if (req.method === 'POST') {
