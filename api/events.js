@@ -1,13 +1,5 @@
 const { Pool } = require('pg');
 
-async function getBody(req) {
-  return new Promise((resolve) => {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => resolve(JSON.parse(body || '{}')));
-  });
-}
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -16,38 +8,45 @@ const pool = new Pool({
 });
 
 module.exports = async function handler(req, res) {
+
+  // ✅ ALWAYS set headers FIRST
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
+  // ✅ handle preflight properly
   if (req.method === 'OPTIONS') {
-  res.status(200).end();
-  return;
-}
-
+    res.status(200).end();
+    return;
+  }
 
   try {
     if (req.method === 'GET') {
       const result = await pool.query('SELECT * FROM events ORDER BY start_at');
-      return res.json(result.rows);
+      return res.status(200).json(result.rows);
     }
 
+    // ✅ SAFELY parse body (Vercel-safe)
+    let body = '';
+    for await (const chunk of req) {
+      body += chunk;
+    }
+    const data = body ? JSON.parse(body) : {};
+
     if (req.method === 'POST') {
-      const e = await getBody(req);
       await pool.query(`
         INSERT INTO events (title, details, lead, contact, note, start_at, end_at, color, is_important)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       `, [
-        e.title, e.details, e.lead, e.contact,
-        e.note, e.start_at, e.end_at,
-        e.color, e.is_important
+        data.title, data.details, data.lead, data.contact,
+        data.note, data.start_at, data.end_at,
+        data.color, data.is_important
       ]);
-      return res.json({ ok: true });
+
+      return res.status(200).json({ ok: true });
     }
 
     if (req.method === 'PUT') {
-      const e = await getBody(req);
       await pool.query(`
         UPDATE events SET
           title=$1, details=$2, lead=$3, contact=$4,
@@ -56,22 +55,26 @@ module.exports = async function handler(req, res) {
           updated_at=NOW()
         WHERE id=$10
       `, [
-        e.title, e.details, e.lead, e.contact,
-        e.note, e.start_at, e.end_at,
-        e.color, e.is_important,
-        e.id
+        data.title, data.details, data.lead, data.contact,
+        data.note, data.start_at, data.end_at,
+        data.color, data.is_important,
+        data.id
       ]);
-      return res.json({ ok: true });
+
+      return res.status(200).json({ ok: true });
     }
 
     if (req.method === 'DELETE') {
-      const e = await getBody(req);
-      await pool.query('DELETE FROM events WHERE id=$1', [id]);
-      return res.json({ ok: true });
+      await pool.query('DELETE FROM events WHERE id=$1', [data.id]);
+      return res.status(200).json({ ok: true });
     }
+
+    return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (err) {
     console.error(err);
+
+    // ✅ ensure error still returns headers
     return res.status(500).json({ error: err.message });
   }
 };
